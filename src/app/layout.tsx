@@ -23,6 +23,9 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'Poti Special Open 2026',
   description: 'Tennis tournament bracket',
+  icons: {
+    icon: '/tennis.svg', 
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
