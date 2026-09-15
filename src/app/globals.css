@@ -1,26 +1,145 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
+/* ─── Design Tokens (Dark Theme by Default) ───────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg-main: #0b0f19;
+  --bg-panel: #111827;
+  --bg-card: #1f2937;
+  --bg-card-hover: #374151;
+
+  /* Accent Colors (Tennis Neon & Ocean Blue) */
+  --accent-primary: #ccff00;
+  --accent-secondary: #3b82f6;
+
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-inverse: #0f172a;
+
+  --border-light: rgba(255, 255, 255, 0.08);
+  --border-med: rgba(255, 255, 255, 0.15);
+  --bg-overlay: rgba(255, 255, 255, 0.05);
+  --bg-overlay-hover: rgba(255, 255, 255, 0.1);
+
+  --win-mark: #10b981;
+  --danger: #ef4444;
+
+  --card-w: 290px;
+  --col-gap: 56px;
 }
 
+/* ─── Light Theme Overrides ───────────────────────────────────────── */
+[data-theme='light'] {
+  --bg-main: #f8fafc;
+  --bg-panel: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f1f5f9;
+
+  --accent-primary: #10b981;
+  --accent-secondary: #2563eb;
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --text-inverse: #ffffff;
+
+  --border-light: rgba(0, 0, 0, 0.08);
+  --border-med: rgba(0, 0, 0, 0.15);
+  --bg-overlay: rgba(0, 0, 0, 0.04);
+  --bg-overlay-hover: rgba(0, 0, 0, 0.08);
+}
+
+/* ─── Tailwind v4 Utilities Mapping ───────────────────────────────── */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-app: var(--bg-main);
+  --color-panel: var(--bg-panel);
+  --color-card: var(--bg-card);
+  --color-card-hover: var(--bg-card-hover);
+  --color-overlay: var(--bg-overlay);
+  --color-overlay-hover: var(--bg-overlay-hover);
+
+  --color-accent: var(--accent-primary);
+  --color-accent-2: var(--accent-secondary);
+
+  --color-ink: var(--text-primary);
+  --color-ink-2: var(--text-secondary);
+  --color-ink-3: var(--text-muted);
+  --color-inverse: var(--text-inverse);
+
+  --color-line: var(--border-light);
+  --color-line-2: var(--border-med);
+  --color-win: var(--win-mark);
+  --color-danger: var(--danger);
+
+  --font-display: var(--font-georgian), var(--font-inter), system-ui, sans-serif;
+  --font-body: var(--font-georgian), var(--font-inter), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ─── Base Styles ─────────────────────────────────────────────────── */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-main);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(204, 255, 0, 0.08), transparent),
+    radial-gradient(ellipse 60% 40% at 50% 120%, rgba(59, 130, 246, 0.06), transparent);
+  background-attachment: fixed;
+  color: var(--text-primary);
+  font-family: var(--font-georgian), var(--font-inter), sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+::selection {
+  background: var(--accent-primary);
+  color: var(--text-inverse);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-secondary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-main);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-med);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* ─── Keyframe Animations ─────────────────────────────────────────── */
+.loading-dots span {
+  animation: blinkDots 1.4s infinite both;
+}
+.loading-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.loading-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes blinkDots {
+  0%, 100% {
+    opacity: 0.2;
+  }
+  20% {
+    opacity: 1;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Glow Effect Utility */
+.accent-glow {
+  box-shadow: 0 0 20px -5px var(--accent-primary);
 }

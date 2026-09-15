@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RegistrationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum MatchMode {
+  singles
+  doubles
+}
+
+model Player {
+  id        String             @id @default(cuid())
+  firstName String             @map("first_name")
+  lastName  String             @map("last_name")
+  phone     String
+  mode      MatchMode          @default(singles)
+  seed      Int?
+  status    RegistrationStatus @default(PENDING)
+  createdAt DateTime           @default(now()) @map("created_at")
+  updatedAt DateTime           @updatedAt @map("updated_at")
+
+  // ── Doubles pair (1-to-1 self-relation) ──
+  partnerId  String?  @unique @map("partner_id")
+  partner    Player?  @relation("DoublesPair", fields: [partnerId], references: [id], onDelete: SetNull)
+  pairedWith Player?  @relation("DoublesPair")
+
+  @@index([mode, status])
+  @@map("players")
+}
+
+model Tournament {
+  mode         MatchMode @id
+  playersList  Json      @default("[]") @map("players_list")
+  bracketData  Json      @default("[]") @map("bracket_data")
+  matchDetails Json      @default("[]") @map("match_details")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  @@map("tournaments")
+}
