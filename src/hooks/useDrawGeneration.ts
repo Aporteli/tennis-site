@@ -122,6 +122,7 @@ export function useDrawGeneration({
         }
 
         setBracketData(bd.map((r) => [...r]));
+        persist(bd, md, currentPlayers);
         setMatchDetails(md.map((r) => [...r]));
         persist(bd, md, currentPlayers);
 
