@@ -87,7 +87,7 @@ export function DrawControls({
               <Users className="h-6 w-6" />
             </div>
             <h3 className="font-black text-[17px] mb-1 tracking-tight group-hover:text-accent transition">
-              მოთამაშეების სია
+              ერთეულების სია
             </h3>
           </div>
           <div className="mt-3 flex items-center justify-center gap-2 text-sm font-semibold text-accent-2 group-hover:text-accent group-hover:gap-3 transition-all">
