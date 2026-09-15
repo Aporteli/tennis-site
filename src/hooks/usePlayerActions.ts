@@ -74,7 +74,6 @@ export function usePlayerActions({
     async (id: string, status: RegistrationStatus) => {
       setRegistrations((prev) => prev.map((p) => (p.id === id ? { ...p, status } : p)));
       await patchPlayerStatus(id, status);
-      // Revalidate BOTH modes — the player may have been added to the other tournament.
       await mutateAll();
     },
     [setRegistrations, mutateAll],

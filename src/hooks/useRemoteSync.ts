@@ -7,13 +7,7 @@ import { fetcher, putTournament } from '../lib/api';
 import { buildInitialBracket } from '../lib/drawInit';
 import { playerBelongsToMode } from '../lib/players';
 import { checkIsBye } from '../lib/tournament/helpers';
-import type {
-  BracketData,
-  MatchDetails,
-  Mode,
-  Player,
-  TournamentState,
-} from '../lib/types';
+import type { BracketData, MatchDetails, Mode, Player, TournamentState } from '../lib/types';
 
 interface Params {
   mode: Mode;
@@ -26,7 +20,7 @@ interface Params {
 }
 
 const swrOptions = {
-  refreshInterval: 2000,
+  refreshInterval: 1000,
   revalidateOnFocus: true,
 };
 
@@ -46,15 +40,13 @@ export function useRemoteSync({
   const mutate = mode === 'doubles' ? doubles.mutate : singles.mutate;
 
   const mutateAll = useCallback(async () => {
-    await globalMutate(
-      (key) => typeof key === 'string' && key.startsWith('/api/tournament'),
-      undefined,
-      { revalidate: true },
-    );
+    await globalMutate((key) => typeof key === 'string' && key.startsWith('/api/tournament'), undefined, {
+      revalidate: true,
+    });
   }, []);
 
   const persist = useCallback(
-    async (bd: BracketData, md: MatchDetails, pl: Player[]) => {
+    async (bd: BracketData, md: MatchDetails, pl: Player[], opts?: { revalidate?: boolean }) => {
       const currentMode = modeRef.current;
       const playersList = pl
         .filter((p) => p && !checkIsBye(p.name) && !p.bye && playerBelongsToMode(p, currentMode))
@@ -66,7 +58,9 @@ export function useRemoteSync({
         matchDetails: md,
         playersList,
       });
-      await mutateAll();
+      if (opts?.revalidate !== false) {
+        await mutateAll();
+      }
     },
     [mutateAll, modeRef],
   );
@@ -94,15 +88,7 @@ export function useRemoteSync({
     const { bracketData, matchDetails } = buildInitialBracket(list);
     setBracketData(bracketData);
     setMatchDetails(matchDetails);
-  }, [
-    remote,
-    mode,
-    drawingRef,
-    setPlayers,
-    setBracketData,
-    setMatchDetails,
-    setRegistrations,
-  ]);
+  }, [remote, mode, drawingRef, setPlayers, setBracketData, setMatchDetails, setRegistrations]);
 
   return { remote, mutate, mutateAll, persist };
 }

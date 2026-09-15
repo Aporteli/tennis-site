@@ -1,12 +1,16 @@
 import type { Mode, Player } from './types';
-import { checkIsBye } from './tournament/helpers';
+import { checkIsBye, shortName } from './tournament/helpers';
 
 function looksLikePair(name: string): boolean {
   return name.includes('/');
 }
 
 function normalizeName(name: string): string {
-  return name.toLowerCase().replace(/\s*\/\s*/g, '/').replace(/\s+/g, ' ').trim();
+  return name
+    .toLowerCase()
+    .replace(/\s*\/\s*/g, '/')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /** Admin-validated (or a curated draw-list row with no status, e.g. typed in). */
@@ -39,11 +43,6 @@ function labelKey(player: Player, mode: Mode): string {
   return normalizeName(label);
 }
 
-/**
- * Collapse a list of Players so a doubles pair (which is stored as TWO Player
- * rows linked by `partner`) counts once. Also keeps entries that already come
- * in as a single composed object.
- */
 function dedupePairs(players: Player[]): Player[] {
   const seen = new Set<string>();
   return players.filter((p) => {
@@ -57,24 +56,30 @@ function dedupePairs(players: Player[]): Player[] {
   });
 }
 
-/** "First Last / First Last" for a doubles pair. */
+/** "გ.ლატარია / ბ.თედია" — short-form label for a doubles pair. */
 export function formatDoublesPairLabel(player: Player): string {
   const partner = player.partner;
-  if (!partner) return player.name;
 
   const left = looksLikePair(player.name)
-    ? player.name.split('/')[0].trim()
-    : player.name.trim();
-  const right = [partner.firstName, partner.lastName].filter(Boolean).join(' ').trim();
+    ? shortName(player.name.split('/')[0].trim())
+    : shortName(player.name);
 
-  return right ? `${left} / ${right}` : player.name;
+  if (!partner) return left;
+
+  const partnerFull = [partner.firstName, partner.lastName]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+  const right = shortName(partnerFull);
+
+  return right ? `${left} / ${right}` : left;
 }
 
 /**
  * Build the value shown inside PlayersModal's textarea.
- *
- * Only admin-validated players for the current format.
- * Doubles lines are: [ "<seed>. " ] First Last / First Last
+ * - singles → "სახელი გვარი"
+ * - doubles → "გ.ლატარია / ბ.თედია"
+ * Seeds are prefixed as "<n>. ".
  */
 export function formatPlayersModalValue(
   mode: Mode,
@@ -94,8 +99,6 @@ export function formatPlayersModalValue(
     byKey.set(key, player);
   };
 
-  // Draw list first (this format's tournament), then overlay approved
-  // registrations so pairs have partner names for formatting.
   for (const p of players) consider(p, false);
   for (const r of registrations) consider(r, true);
 

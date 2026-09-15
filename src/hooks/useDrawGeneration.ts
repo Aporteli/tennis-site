@@ -5,13 +5,7 @@ import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { checkIsBye } from '../lib/tournament/helpers';
 import { buildInitialBracket } from '../lib/drawInit';
 import { playerBelongsToMode } from '../lib/players';
-import type {
-  BracketData,
-  MatchDetails,
-  Mode,
-  Player,
-  TournamentState,
-} from '../lib/types';
+import type { BracketData, MatchDetails, Mode, Player, TournamentState } from '../lib/types';
 
 interface Params {
   remote: TournamentState | undefined;
@@ -24,8 +18,12 @@ interface Params {
   setUndoStack: Dispatch<SetStateAction<string[]>>;
   setBracketData: Dispatch<SetStateAction<BracketData>>;
   setMatchDetails: Dispatch<SetStateAction<MatchDetails>>;
-  persist: (bd: BracketData, md: MatchDetails, pl: Player[]) => Promise<void>;
-  pushHistory: () => void;
+  persist: (
+    bd: BracketData,
+    md: MatchDetails,
+    pl: Player[],
+    opts?: { revalidate?: boolean },
+  ) => Promise<void>;  pushHistory: () => void;
 }
 
 export function useDrawGeneration({
@@ -54,9 +52,7 @@ export function useDrawGeneration({
   const resetDraw = useCallback(() => {
     pushHistory();
 
-    const currentPlayers = players.filter(
-      (p) => p && !checkIsBye(p.name) && !p.bye && playerBelongsToMode(p, mode),
-    );
+    const currentPlayers = players.filter((p) => p && !checkIsBye(p.name) && !p.bye && playerBelongsToMode(p, mode));
     const { bracketData, matchDetails } = buildInitialBracket(currentPlayers);
     setBracketData(bracketData);
     setMatchDetails(matchDetails);
@@ -76,12 +72,7 @@ export function useDrawGeneration({
     drawingRef.current = true;
     setIsDrawing(true);
 
-    const {
-      bracketData: bd,
-      matchDetails: md,
-      stats: s,
-      slots,
-    } = buildInitialBracket(currentPlayers);
+    const { bracketData: bd, matchDetails: md, stats: s, slots } = buildInitialBracket(currentPlayers);
 
     setBracketData(bd.map((r) => [...r]));
     setMatchDetails(md.map((r) => [...r]));
@@ -95,6 +86,15 @@ export function useDrawGeneration({
 
     let stepIdx = 0;
     if (drawIntervalRef.current) clearInterval(drawIntervalRef.current);
+
+    let writeChain: Promise<void> = Promise.resolve();
+    const persistStep = () => {
+      const snapshotBd = bd.map((r) => [...r]);
+      const snapshotMd = md.map((r) => [...r]);
+      writeChain = writeChain.then(() =>
+        persist(snapshotBd, snapshotMd, currentPlayers, { revalidate: false }),
+      );
+    };
 
     const intervalId = setInterval(() => {
       if (stepIdx >= steps.length) {
@@ -124,7 +124,7 @@ export function useDrawGeneration({
         setBracketData(bd.map((r) => [...r]));
         persist(bd, md, currentPlayers);
         setMatchDetails(md.map((r) => [...r]));
-        persist(bd, md, currentPlayers);
+        persist(bd, md, currentPlayers); // revalidate once at the end
 
         drawingRef.current = false;
         setIsDrawing(false);
@@ -133,11 +133,7 @@ export function useDrawGeneration({
           const url = new URL(window.location.href);
           if (url.searchParams.has('generateDraw')) {
             url.searchParams.delete('generateDraw');
-            window.history.replaceState(
-              null,
-              '',
-              `${url.pathname}${url.search}`,
-            );
+            window.history.replaceState(null, '', `${url.pathname}${url.search}`);
           }
         }
         return;
@@ -146,28 +142,18 @@ export function useDrawGeneration({
       const step = steps[stepIdx];
       bd[0][step.index] = step.player;
       setBracketData(bd.map((r) => [...r]));
+      persistStep();
       stepIdx++;
-    }, 2000);
+    }, 1000);
 
     drawIntervalRef.current = intervalId;
-  }, [
-    mode,
-    persist,
-    pushHistory,
-    playersRef,
-    drawingRef,
-    setIsDrawing,
-    setBracketData,
-    setMatchDetails,
-  ]);
+  }, [mode, persist, pushHistory, playersRef, drawingRef, setIsDrawing, setBracketData, setMatchDetails]);
 
   // ── Auto-generate from ?generateDraw=... URL param ──────────────────
   useEffect(() => {
     if (typeof window === 'undefined' || !remote) return;
 
-    const pending = new URLSearchParams(window.location.search).get(
-      'generateDraw',
-    );
+    const pending = new URLSearchParams(window.location.search).get('generateDraw');
     if (pending !== 'singles' && pending !== 'doubles') return;
 
     if (pending !== mode) {
@@ -186,15 +172,7 @@ export function useDrawGeneration({
       generateDraw();
     }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [
-    remote,
-    mode,
-    generateDraw,
-    setMode,
-    setUndoStack,
-    playersRef,
-    drawingRef,
-  ]);
+  }, [remote, mode, generateDraw, setMode, setUndoStack, playersRef, drawingRef]);
 
   return { generateDraw, resetDraw };
 }

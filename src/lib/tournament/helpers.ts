@@ -52,31 +52,51 @@ function looksLikePair(name: string): boolean {
 }
 
 /**
- * Canonical display name for a bracket / score / modal slot.
- * - null / bye         → 'TBD' / 'Bye'
- * - no partner         → player.name as-is
- * - partner present    → "PrimaryFirst/PartnerFirst" (unless name already looks like "A/B")
- *
- * Note: we deliberately ignore `player.mode` here — presence of `partner` is
- * the strongest signal that this is a doubles entry.
+ * "გიორგი ლატარია"     → "გ.ლატარია"
+ * "გიორგი კ. ლატარია"  → "გ.ლატარია"
+ * "გ.ლატარია"          → "გ.ლატარია"  (already short — unchanged)
+ * "ლატარია"            → "ლატარია"    (single token — unchanged)
+ */
+export function shortName(fullName: string): string {
+  const trimmed = fullName.trim().replace(/\s+/g, ' ');
+  if (!trimmed) return '';
+
+  const parts = trimmed.split(' ');
+  if (parts.length === 1) return parts[0];
+
+  const initial = parts[0].replace(/\.$/, '')[0] ?? '';
+  const lastName = parts[parts.length - 1];
+
+  return initial ? `${initial}.${lastName}` : lastName;
+}
+
+/**
+ * Canonical display name for a bracket / score / walkover slot.
+ * - null / bye   → 'TBD' / 'Bye'
+ * - singles      → full name
+ * - doubles pair → "გ.ლატარია / ბ.თედია"
  */
 export function getPlayerDisplayName(player: Player | null | undefined): string {
   if (!player) return 'TBD';
   if (checkIsBye(player.name)) return player.name;
 
   const partner = player.partner;
-  if (!partner) return player.name;
+  const isDoubles = Boolean(partner) || looksLikePair(player.name);
+  if (!isDoubles) return player.name;
 
-  // Backend already stored a composed string — leave it alone.
-  if (looksLikePair(player.name)) return player.name;
+  // Left side: handle both "გიორგი ლატარია" and "გიორგი / ბექა".
+  const leftRaw = looksLikePair(player.name)
+    ? player.name.split('/')[0].trim()
+    : player.name;
+  const left = shortName(leftRaw);
 
-  const primaryFirst = player.name.trim().split(/\s+/)[0] || player.name;
-  const partnerFirst = (partner.firstName ?? '').trim();
+  if (!partner) return left;
+
   const partnerFull = [partner.firstName, partner.lastName]
     .filter(Boolean)
     .join(' ')
     .trim();
+  const right = shortName(partnerFull);
 
-  const right = partnerFirst || partnerFull;
-  return right ? `${primaryFirst}/${right}` : player.name;
+  return right ? `${left} / ${right}` : left;
 }

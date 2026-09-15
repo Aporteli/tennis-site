@@ -36,8 +36,7 @@ export function PlayersModal({ open, mode, initialValue, onCancel, onSave }: Pro
           type="button"
           className="absolute -right-1 -top-1 flex h-8 w-8 items-center justify-center rounded-full text-xl text-ink-2 transition hover:bg-line/40 hover:text-ink focus:outline-none cursor-pointer"
           aria-label="Close"
-          onClick={onCancel}
-        >
+          onClick={onCancel}>
           ✕
         </button>
 
@@ -49,8 +48,7 @@ export function PlayersModal({ open, mode, initialValue, onCancel, onSave }: Pro
       <p className="mb-4 text-[13px] leading-relaxed text-ink-2">
         {mode === 'doubles' ? (
           <>
-            შეიყვანეთ თითო წყვილი თითო ხაზზე (მაგ:{' '}
-            <strong>Giorgi Kalmakhelidze / Nika Beridze</strong>).
+            შეიყვანეთ თითო წყვილი თითო ხაზზე (მაგ: <strong>Giorgi Kalmakhelidze / Nika Beridze</strong>).
             <br />
             განთესილებისთვის (Seed) წინ დაუწერეთ ნომერი და წერტილი (მაგ:{' '}
             <strong>1. Giorgi Kalmakhelidze / Nika Beridze</strong>).
