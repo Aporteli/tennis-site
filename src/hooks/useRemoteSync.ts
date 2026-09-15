@@ -79,6 +79,12 @@ export function useRemoteSync({
     setPlayers(list);
     setRegistrations(remote.registrations ?? []);
 
+    if (list.length === 0) {
+      setBracketData([]);
+      setMatchDetails([]);
+      return;
+    }
+
     if (remote.bracketData && remote.bracketData.length > 0) {
       setBracketData(remote.bracketData);
       setMatchDetails(remote.matchDetails ?? []);

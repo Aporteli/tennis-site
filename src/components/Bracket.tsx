@@ -2,6 +2,7 @@
 
 import { Match } from './Match';
 import { roundLabel } from '../lib/tournament/helpers';
+import { checkIsBye } from '../lib/tournament/helpers';
 import type { BracketData, MatchDetails, Mode } from '../lib/types';
 
 interface Props {
@@ -12,9 +13,11 @@ interface Props {
 }
 
 export function Bracket({ bracketData, matchDetails, mode, onMatchClick }: Props) {
-  if (!bracketData.length || !bracketData[0]) return null;
+  const round0 = bracketData[0];
+  const hasPlayers = round0?.some((p) => p != null && !p.bye && !checkIsBye(p.name));
+  if (!hasPlayers) return null;
 
-  const currentSize = bracketData[0].length;
+  const currentSize = round0.length;
   const numRounds = Math.log2(currentSize);
 
   const MATCH_H = mode === 'doubles' ? 76 : 68;
