@@ -146,7 +146,7 @@ export function useDrawGeneration({
       bd[0][step.index] = step.player;
       setBracketData(bd.map((r) => [...r]));
       stepIdx++;
-    }, 200);
+    }, 2000);
 
     drawIntervalRef.current = intervalId;
   }, [
