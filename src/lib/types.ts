@@ -11,6 +11,12 @@ export interface PartnerInfo {
   status: RegistrationStatus;
 }
 
+export interface Pair {
+  id: string;
+  p1: Player;
+  p2: Player;
+}
+
 export interface Player {
   id?: string;
   name: string;

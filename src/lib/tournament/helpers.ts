@@ -46,16 +46,16 @@ export function parsePlayersInput(input: string): Player[] {
     });
 }
 
-/** True if a name already looks like a composed pair ("A/B", "A / B", "A/B/C"). */
+/** True if a name already looks like a composed pair ("A/B", "A / B"). */
 function looksLikePair(name: string): boolean {
   return name.includes('/');
 }
 
 /**
- * "გიორგი ლატარია"     → "გ.ლატარია"
- * "გიორგი კ. ლატარია"  → "გ.ლატარია"
- * "გ.ლატარია"          → "გ.ლატარია"  (already short — unchanged)
- * "ლატარია"            → "ლატარია"    (single token — unchanged)
+ * "გიორგი ნებიერაძე"     → "გ.ნებიერაძე"
+ * "გიორგი კ. ნებიერაძე"  → "გ.ნებიერაძე"
+ * "გ.ნებიერაძე"          → "გ.ნებიერაძე"  (already short — unchanged)
+ * "ნებიერაძე"            → "ნებიერაძე"    (single token — unchanged)
  */
 export function shortName(fullName: string): string {
   const trimmed = fullName.trim().replace(/\s+/g, ' ');
@@ -74,7 +74,7 @@ export function shortName(fullName: string): string {
  * Canonical display name for a bracket / score / walkover slot.
  * - null / bye   → 'TBD' / 'Bye'
  * - singles      → full name
- * - doubles pair → "გ.ლატარია / ბ.თედია"
+ * - doubles pair → "გ.ნებიერაძე/შ.ხმალაძე"
  */
 export function getPlayerDisplayName(player: Player | null | undefined): string {
   if (!player) return 'TBD';
@@ -84,12 +84,15 @@ export function getPlayerDisplayName(player: Player | null | undefined): string 
   const isDoubles = Boolean(partner) || looksLikePair(player.name);
   if (!isDoubles) return player.name;
 
-  // Left side: handle both "გიორგი ლატარია" and "გიორგი / ბექა".
-  const leftRaw = looksLikePair(player.name)
-    ? player.name.split('/')[0].trim()
-    : player.name;
-  const left = shortName(leftRaw);
+  // If the name is already a composed pair, shorten each side.
+  if (looksLikePair(player.name)) {
+    const [leftRaw, rightRaw] = player.name.split('/').map((s) => s.trim());
+    const left = shortName(leftRaw);
+    const right = shortName(rightRaw);
+    return right ? `${left}/${right}` : left;
+  }
 
+  const left = shortName(player.name);
   if (!partner) return left;
 
   const partnerFull = [partner.firstName, partner.lastName]
@@ -98,5 +101,5 @@ export function getPlayerDisplayName(player: Player | null | undefined): string 
     .trim();
   const right = shortName(partnerFull);
 
-  return right ? `${left} / ${right}` : left;
+  return right ? `${left}/${right}` : left;
 }

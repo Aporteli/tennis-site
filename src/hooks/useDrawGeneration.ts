@@ -122,12 +122,11 @@ export function useDrawGeneration({
         }
 
         setBracketData(bd.map((r) => [...r]));
-        persist(bd, md, currentPlayers);
         setMatchDetails(md.map((r) => [...r]));
-        persist(bd, md, currentPlayers); // revalidate once at the end
-
-        drawingRef.current = false;
-        setIsDrawing(false);
+        void persist(bd, md, currentPlayers).finally(() => {
+          drawingRef.current = false;
+          setIsDrawing(false);
+        });
 
         if (typeof window !== 'undefined') {
           const url = new URL(window.location.href);

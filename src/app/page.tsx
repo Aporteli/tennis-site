@@ -4,8 +4,9 @@ import { useState } from 'react';
 import { Header } from '../components/header/Header';
 import { Controls } from '../components/Controls';
 import { Bracket } from '../components/Bracket';
+import { BracketEmptyState } from '../components/BracketEmptyState';
 import { LoginModal } from '../components/LoginModal';
-import RegisterModal from '../components/RegisterModal'; // 1. დაემატა RegisterModal-ის იმპორტი
+import RegisterModal from '../components/RegisterModal';
 import { ScoreModal } from '../components/ScoreModal';
 import { WalkoverModal } from '../components/WalkoverModal';
 import { useAuth } from '../hooks/useAuth';
@@ -25,28 +26,27 @@ export default function Page() {
     matchDetails,
     stats,
     isDrawing,
+    hasExistingDraw,
     saveScore,
     confirmWalkover,
+    registrations,
   } = tournament;
 
   const [loginOpen, setLoginOpen] = useState(false);
-  const [registerOpen, setRegisterOpen] = useState(false); // 2. დაემატა State რეგისტრაციის მოდალისთვის
+  const [registerOpen, setRegisterOpen] = useState(false);
   const [scoreInfo, setScoreInfo] = useState<MatchInfo | null>(null);
   const [pendingWo, setPendingWo] = useState<PendingWalkover | null>(null);
 
   const isAdmin = !!user;
   const numRounds = bracketData[0] ? Math.log2(bracketData[0].length) : 0;
+  const targetDate = new Date('2026-09-17T12:00:00Z');
 
   const handleAuthClick = () => {
     if (user) logout();
     else setLoginOpen(true);
   };
 
-  const handleMatchClick = (
-    r: number,
-    matchIdx: number,
-    _playerIndex: 0 | 1,
-  ) => {
+  const handleMatchClick = (r: number, matchIdx: number, _playerIndex: 0 | 1) => {
     if (!isAdmin || isDrawing) return;
 
     const p1 = bracketData[r]?.[matchIdx * 2] ?? null;
@@ -89,29 +89,33 @@ export default function Page() {
         isLoggedIn={isAdmin}
         isAdmin={isAdmin}
         onAuthClick={handleAuthClick}
-        onRegisterClick={() => setRegisterOpen(true)} // 3. გადაეცა რეგისტრაციის გასახსნელი ფუნქცია
+        onRegisterClick={() => setRegisterOpen(true)}
       />
 
       <Controls mode={mode} onModeChange={switchMode} />
 
-      <Bracket
-        bracketData={bracketData}
-        matchDetails={matchDetails}
-        mode={mode}
-        onMatchClick={handleMatchClick}
-      />
+      {hasExistingDraw || isDrawing ? (
+        <Bracket
+          bracketData={bracketData}
+          matchDetails={matchDetails}
+          mode={mode}
+          onMatchClick={handleMatchClick}
+        />
+      ) : (
+        <BracketEmptyState
+          registrations={registrations}
+          targetDate={targetDate}
+          onRegisterClick={() => setRegisterOpen(true)}
+        />
+      )}
 
-      {/* 4. დაემატა RegisterModal კომპონენტი */}
       <RegisterModal
         isOpen={registerOpen}
         mode={mode}
         onClose={() => setRegisterOpen(false)}
       />
 
-      <LoginModal
-        isOpen={loginOpen}
-        onClose={() => setLoginOpen(false)}
-      />
+      <LoginModal isOpen={loginOpen} onClose={() => setLoginOpen(false)} />
 
       <ScoreModal
         open={!!scoreInfo}

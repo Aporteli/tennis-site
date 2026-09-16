@@ -40,8 +40,8 @@ export function Header({
       <div className="flex items-center justify-between gap-2 sm:gap-4">
         <h1 className="min-w-0 truncate font-display text-base font-black uppercase leading-tight tracking-tight text-ink sm:text-2xl md:text-[clamp(28px,4.5vw,44px)] md:leading-none">
           Poti{' '}
-          <span className="text-accent-2 drop-shadow-sm">Special Open</span>{' '}
-          2026
+          <span className="text-accent-2 drop-shadow-sm"> Open</span>{' '}
+          5
         </h1>
 
         <HeaderActions

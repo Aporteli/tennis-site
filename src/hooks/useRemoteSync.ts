@@ -69,9 +69,6 @@ export function useRemoteSync({
     if (drawingRef.current) return;
 
     if (!remote) {
-      setPlayers([]);
-      setBracketData([]);
-      setMatchDetails([]);
       return;
     }
 
@@ -91,9 +88,8 @@ export function useRemoteSync({
       return;
     }
 
-    const { bracketData, matchDetails } = buildInitialBracket(list);
-    setBracketData(bracketData);
-    setMatchDetails(matchDetails);
+    setBracketData([]);
+    setMatchDetails([]);
   }, [remote, mode, drawingRef, setPlayers, setBracketData, setMatchDetails, setRegistrations]);
 
   return { remote, mutate, mutateAll, persist };
