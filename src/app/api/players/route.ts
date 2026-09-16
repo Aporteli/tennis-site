@@ -76,13 +76,10 @@ function fakeSuccess(mode: 'singles' | 'doubles') {
 }
 
 /**
- * Search approved doubles pairs for one that would duplicate the incoming pair.
- *
- * The rule is a "double lock":
- *   - Both names within 2 edits of the approved pair's names (order-independent)
- *   - AND at least one phone within 1 edit of the corresponding approved phone
- *
- * Both conditions must hold, otherwise we'd risk blocking legitimate new pairs.
+ * Match an incoming doubles pair against pending or approved pairs.
+ * Duplicate if:
+ *   - both phones within 1 digit (either order), or
+ *   - both names within 2 edits (either order) AND at least one phone within 1 digit
  */
 async function findBlockingDuplicate(input: {
   names: [string, string];
@@ -91,7 +88,7 @@ async function findBlockingDuplicate(input: {
   const candidates = await prisma.player.findMany({
     where: {
       mode: 'doubles',
-      status: 'APPROVED',
+      status: { not: 'REJECTED' },
       partnerId: { not: null },
     },
     include: { partner: true },
@@ -116,24 +113,29 @@ async function findBlockingDuplicate(input: {
     ];
     const inPhones: [string, string] = input.phones;
 
-    // Names must match in either order.
+    const directPhones =
+      levenshtein(inPhones[0], exPhones[0]) <= 1 &&
+      levenshtein(inPhones[1], exPhones[1]) <= 1;
+    const swappedPhones =
+      levenshtein(inPhones[0], exPhones[1]) <= 1 &&
+      levenshtein(inPhones[1], exPhones[0]) <= 1;
+    const bothPhones = directPhones || swappedPhones;
+
     const directNames =
       levenshtein(inNames[0], exNames[0]) <= 2 &&
       levenshtein(inNames[1], exNames[1]) <= 2;
     const swappedNames =
       levenshtein(inNames[0], exNames[1]) <= 2 &&
       levenshtein(inNames[1], exNames[0]) <= 2;
+    const namesNear = directNames || swappedNames;
 
-    if (!directNames && !swappedNames) continue;
-
-    // Phones: only one close match is enough to confirm.
-    const phoneNear =
+    const onePhoneNear =
       levenshtein(inPhones[0], exPhones[0]) <= 1 ||
       levenshtein(inPhones[0], exPhones[1]) <= 1 ||
       levenshtein(inPhones[1], exPhones[0]) <= 1 ||
       levenshtein(inPhones[1], exPhones[1]) <= 1;
 
-    if (phoneNear) {
+    if (bothPhones || (namesNear && onePhoneNear)) {
       return {
         id: c.id,
         name: `${c.firstName} ${c.lastName} / ${c.partner.firstName} ${c.partner.lastName}`,
@@ -216,17 +218,17 @@ export async function POST(req: Request) {
     // ── 0. Rate limit by IP (5 registrations / hour) ──────────────
     const ip = getClientIp(req);
     const rl = checkRateLimit(`register:${ip}`, 5, 60 * 60_000);
-    if (!rl.allowed) {
-      return NextResponse.json(
-        { error: 'ძალიან ბევრი მცდელობა. სცადეთ მოგვიანებით.' },
-        {
-          status: 429,
-          headers: {
-            'Retry-After': String(Math.ceil(rl.retryAfterMs / 1000)),
-          },
-        },
-      );
-    }
+    // if (!rl.allowed) {
+    //   return NextResponse.json(
+    //     { error: 'ძალიან ბევრი მცდელობა. სცადეთ მოგვიანებით.' },
+    //     {
+    //       status: 429,
+    //       headers: {
+    //         'Retry-After': String(Math.ceil(rl.retryAfterMs / 1000)),
+    //       },
+    //     },
+    //   );
+    // }
 
     const body = await req.json();
     const {
@@ -289,7 +291,6 @@ export async function POST(req: Request) {
         );
       }
 
-      // ── Block near-duplicate of an already-approved pair ──────
       const blocking = await findBlockingDuplicate({
         names: [`${cleanFirst} ${cleanLast}`, `${pFirst} ${pLast}`],
         phones: [cleanPhone, pPhone],
