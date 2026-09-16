@@ -216,17 +216,17 @@ export async function POST(req: Request) {
     // ── 0. Rate limit by IP (5 registrations / hour) ──────────────
     const ip = getClientIp(req);
     const rl = checkRateLimit(`register:${ip}`, 5, 60 * 60_000);
-    // if (!rl.allowed) {
-    //   return NextResponse.json(
-    //     { error: 'ძალიან ბევრი მცდელობა. სცადეთ მოგვიანებით.' },
-    //     {
-    //       status: 429,
-    //       headers: {
-    //         'Retry-After': String(Math.ceil(rl.retryAfterMs / 1000)),
-    //       },
-    //     },
-    //   );
-    // }
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'ძალიან ბევრი მცდელობა. სცადეთ მოგვიანებით.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(Math.ceil(rl.retryAfterMs / 1000)),
+          },
+        },
+      );
+    }
 
     const body = await req.json();
     const {
