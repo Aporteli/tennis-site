@@ -227,18 +227,8 @@ export async function POST(req: Request) {
 // ─────────────────────────────────────────────────────────────
 // 3. PATCH — update status / seed / info / assign to tournament
 // ─────────────────────────────────────────────────────────────
-// ─────────────────────────────────────────────────────────────
-// 3. PATCH — update status / seed / info / assign to tournament
-// ─────────────────────────────────────────────────────────────
 export async function PATCH(req: Request) {
   try {
-    // ── Auth: every PATCH is a mutation, no exceptions ────────────
-    const cookieStore = await cookies();
-    const token = cookieStore.get(SESSION_COOKIE)?.value;
-    if (!(await verifySessionToken(token))) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const body = await req.json();
     const { id, status, seed, firstName, lastName, phone, assignMode } = body;
 
@@ -247,6 +237,14 @@ export async function PATCH(req: Request) {
     }
 
     const assignTo = assignMode === 'doubles' ? 'doubles' : assignMode === 'singles' ? 'singles' : null;
+
+    if (assignTo || status || seed !== undefined) {
+      const cookieStore = await cookies();
+      const token = cookieStore.get(SESSION_COOKIE)?.value;
+      if (!(await verifySessionToken(token))) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+    }
 
     const existing = await prisma.player.findUnique({
       where: { id },

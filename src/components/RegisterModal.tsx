@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { X, UserPlus, CheckCircle2 } from 'lucide-react';
 import type { Mode } from '../lib/types';
 
@@ -10,6 +10,16 @@ interface RegisterModalProps {
   onClose: () => void;
   onSuccess?: () => void;
 }
+
+/** Honeypot field names — common targets bots look for. */
+const HONEYPOT_NAMES = ['website', 'url', 'company', 'email2', 'fax', 'address', 'username'] as const;
+
+type HoneypotKey = (typeof HONEYPOT_NAMES)[number];
+
+const emptyHoneypots = (): Record<HoneypotKey, string> =>
+  HONEYPOT_NAMES.reduce((acc, k) => ({ ...acc, [k]: '' }), {} as Record<HoneypotKey, string>);
+
+const MIN_FILL_TIME_MS = 2000;
 
 export default function RegisterModal({ isOpen, mode, onClose, onSuccess }: RegisterModalProps) {
   const [matchType, setMatchType] = useState<Mode>(mode);
@@ -23,12 +33,31 @@ export default function RegisterModal({ isOpen, mode, onClose, onSuccess }: Regi
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
+  // ── Honeypot state ────────────────────────────────────────────────
+  const [honeypots, setHoneypots] = useState<Record<HoneypotKey, string>>(emptyHoneypots);
+  const openedAtRef = useRef<number>(Date.now());
+
   if (!isOpen) return null;
 
   const phoneDigitsRegex = /^\d{9}$/;
 
+  /** True if any honeypot fired or the form was filled impossibly fast. */
+  const looksLikeBot = (): boolean => {
+    for (const name of HONEYPOT_NAMES) {
+      if (honeypots[name].trim() !== '') return true;
+    }
+    if (Date.now() - openedAtRef.current < MIN_FILL_TIME_MS) return true;
+    return false;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Bot detected → pretend success, never hit the API.
+    if (looksLikeBot()) {
+      setSubmitted(true);
+      return;
+    }
 
     if (!firstName.trim() || !lastName.trim() || !phoneDigitsRegex.test(phone.trim())) {
       setError('გთხოვთ შეავსოთ სახელი, გვარი და ტელეფონის ნომერი');
@@ -49,16 +78,19 @@ export default function RegisterModal({ isOpen, mode, onClose, onSuccess }: Regi
       const payload = {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        phone: phoneDigitsRegex.test(phone.trim()) ? phone.trim() : null,
+        phone: phone.trim() || null,
         mode: matchType,
         partner:
           matchType === 'doubles'
             ? {
                 firstName: partnerFirstName.trim(),
                 lastName: partnerLastName.trim(),
-                phone: phoneDigitsRegex.test(partnerPhone.trim()) ? partnerPhone.trim() : null,
+                phone: partnerPhone.trim() || null,
               }
             : null,
+        // ── anti-bot signals ──
+        openedAt: openedAtRef.current,
+        ...honeypots,
       };
 
       const res = await fetch('/api/players', {
@@ -99,10 +131,10 @@ export default function RegisterModal({ isOpen, mode, onClose, onSuccess }: Regi
     setSubmitted(false);
     setError(null);
     setMatchType(mode);
+    setHoneypots(emptyHoneypots());
+    openedAtRef.current = Date.now(); // reset timer for next open
     onClose();
   };
-
-  const modeLabel = matchType === 'doubles' ? 'წყვილები' : 'ერთეულები';
 
   const inputClass =
     'w-full rounded-xl border border-line bg-card pl-3 pr-3 py-2.5 text-sm text-ink placeholder:text-ink-3 outline-none focus:border-accent-2 focus:ring-1 focus:ring-accent-2 transition';
@@ -110,7 +142,6 @@ export default function RegisterModal({ isOpen, mode, onClose, onSuccess }: Regi
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-line bg-panel p-6 sm:p-8 shadow-2xl">
-        {/* დახურვის ღილაკი */}
         <button
           type="button"
           onClick={handleClose}
@@ -135,7 +166,116 @@ export default function RegisterModal({ isOpen, mode, onClose, onSuccess }: Regi
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off" noValidate={false}>
+            {/* ═══════════════════════════════════════════════════════
+                HONEYPOT LAYER 1 — display:none fields
+                Naive bots fill every <input> they see.
+            ═══════════════════════════════════════════════════════ */}
+            <div aria-hidden="true" style={{ display: 'none' }}>
+              <label>
+                Website
+                <input
+                  type="text"
+                  name="website"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={honeypots.website}
+                  onChange={(e) => setHoneypots((h) => ({ ...h, website: e.target.value }))}
+                />
+              </label>
+              <label>
+                Company
+                <input
+                  type="text"
+                  name="company"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={honeypots.company}
+                  onChange={(e) => setHoneypots((h) => ({ ...h, company: e.target.value }))}
+                />
+              </label>
+              <label>
+                Email
+                <input
+                  type="email"
+                  name="email2"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={honeypots.email2}
+                  onChange={(e) => setHoneypots((h) => ({ ...h, email2: e.target.value }))}
+                />
+              </label>
+              <label>
+                Username
+                <input
+                  type="text"
+                  name="username"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={honeypots.username}
+                  onChange={(e) => setHoneypots((h) => ({ ...h, username: e.target.value }))}
+                />
+              </label>
+            </div>
+
+            {/* ═══════════════════════════════════════════════════════
+                HONEYPOT LAYER 2 — off-screen fields
+                Smarter bots skip display:none but still fill
+                inputs they can "see" in the DOM.
+            ═══════════════════════════════════════════════════════ */}
+            <div
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                left: '-9999px',
+                top: 'auto',
+                width: '1px',
+                height: '1px',
+                overflow: 'hidden',
+              }}>
+              <label>
+                Fax number
+                <input
+                  type="text"
+                  name="fax"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={honeypots.fax}
+                  onChange={(e) => setHoneypots((h) => ({ ...h, fax: e.target.value }))}
+                />
+              </label>
+              <label>
+                Home address
+                <input
+                  type="text"
+                  name="address"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={honeypots.address}
+                  onChange={(e) => setHoneypots((h) => ({ ...h, address: e.target.value }))}
+                />
+              </label>
+              <label>
+                Personal URL
+                <input
+                  type="url"
+                  name="url"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={honeypots.url}
+                  onChange={(e) => setHoneypots((h) => ({ ...h, url: e.target.value }))}
+                />
+              </label>
+            </div>
+
+            {/* ═══════════════════════════════════════════════════════
+                HONEYPOT LAYER 3 — timing trap
+                A hidden timestamp written on mount. If the form
+                submits within MIN_FILL_TIME_MS, it's automated.
+                (Handled via openedAtRef — no DOM field needed.)
+            ═══════════════════════════════════════════════════════ */}
+
+            {/* ── Header ── */}
             <div className="flex items-center gap-3.5 pb-3 border-b border-line">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent-2/10 text-accent-2 border border-accent-2/20 shrink-0">
                 <UserPlus className="h-5 w-5" />
@@ -152,7 +292,7 @@ export default function RegisterModal({ isOpen, mode, onClose, onSuccess }: Regi
               </div>
             )}
 
-            {/* ── რეჟიმის არჩევა (Singles / Doubles) ── */}
+            {/* ── Mode toggle ── */}
             <div>
               <div className="grid grid-cols-2 gap-2">
                 <button
@@ -178,50 +318,36 @@ export default function RegisterModal({ isOpen, mode, onClose, onSuccess }: Regi
               </div>
             </div>
 
-            {/* ── მოთამაშის მონაცემები ── */}
+            {/* ── Player fields ── */}
             <div className="space-y-4">
-              <div>
-                <div className="relative">
-                  <input
-                    type="text"
-                    required
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="სახელი"
-                    className={inputClass}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div className="relative">
-                  <input
-                    type="text"
-                    required
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    placeholder="გვარი"
-                    className={inputClass}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div className="relative">
-                  <input
-                    type="tel"
-                    required
-                    value={phone}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 9);
-                      setPhone(val);
-                    }}
-                    pattern="\d{9}"
-                    placeholder="ტელეფონის ნომერი"
-                    className={inputClass}
-                  />
-                </div>
-              </div>
+              <input
+                type="text"
+                required
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="სახელი"
+                className={inputClass}
+              />
+              <input
+                type="text"
+                required
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="გვარი"
+                className={inputClass}
+              />
+              <input
+                type="tel"
+                required
+                value={phone}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 9);
+                  setPhone(val);
+                }}
+                pattern="\d{9}"
+                placeholder="ტელეფონის ნომერი"
+                className={inputClass}
+              />
             </div>
 
             {matchType === 'doubles' && (
@@ -231,48 +357,34 @@ export default function RegisterModal({ isOpen, mode, onClose, onSuccess }: Regi
                   <h4 className="text-xs font-bold uppercase tracking-wider text-accent-2">მეწყვილე</h4>
                 </div>
 
-                <div>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      required
-                      value={partnerFirstName}
-                      onChange={(e) => setPartnerFirstName(e.target.value)}
-                      placeholder="სახელი"
-                      className={inputClass}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      required
-                      value={partnerLastName}
-                      onChange={(e) => setPartnerLastName(e.target.value)}
-                      placeholder="გვარი"
-                      className={inputClass}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="relative">
-                    <input
-                      type="tel"
-                      required
-                      value={partnerPhone}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 9);
-                        setPartnerPhone(val);
-                      }}
-                      pattern="\d{9}"
-                      placeholder="ტელეფონის ნომერი"
-                      className={inputClass}
-                    />
-                  </div>
-                </div>
+                <input
+                  type="text"
+                  required
+                  value={partnerFirstName}
+                  onChange={(e) => setPartnerFirstName(e.target.value)}
+                  placeholder="სახელი"
+                  className={inputClass}
+                />
+                <input
+                  type="text"
+                  required
+                  value={partnerLastName}
+                  onChange={(e) => setPartnerLastName(e.target.value)}
+                  placeholder="გვარი"
+                  className={inputClass}
+                />
+                <input
+                  type="tel"
+                  required
+                  value={partnerPhone}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 9);
+                    setPartnerPhone(val);
+                  }}
+                  pattern="\d{9}"
+                  placeholder="ტელეფონის ნომერი"
+                  className={inputClass}
+                />
               </div>
             )}
 
