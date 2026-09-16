@@ -90,7 +90,7 @@ export function formatPlayersModalValue(
 
   const consider = (player: Player | null | undefined, overwrite: boolean) => {
     if (!player?.name) return;
-    if (checkIsBye(player.name) || player.bye) return;
+    if (checkIsBye(player.name)) return;
     if (!isValidated(player)) return;
     if (!playerBelongsToMode(player, mode)) return;
 

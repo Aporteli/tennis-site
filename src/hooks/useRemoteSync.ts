@@ -49,7 +49,7 @@ export function useRemoteSync({
     async (bd: BracketData, md: MatchDetails, pl: Player[], opts?: { revalidate?: boolean }) => {
       const currentMode = modeRef.current;
       const playersList = pl
-        .filter((p) => p && !checkIsBye(p.name) && !p.bye && playerBelongsToMode(p, currentMode))
+        .filter((p) => p && !checkIsBye(p.name) && playerBelongsToMode(p, currentMode))
         .map((p) => ({ ...p, mode: p.mode ?? currentMode }));
 
       await putTournament({

@@ -85,7 +85,6 @@ export function useTournament() {
   const { generateDraw, resetDraw } = useDrawGeneration({
     remote,
     mode,
-    players,
     playersRef,
     approvedForMode,
     drawingRef,

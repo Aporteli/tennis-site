@@ -2,12 +2,11 @@ import type { BracketData, MatchDetails, Player, TournamentStats } from '../type
 import { checkIsBye, nextPow2 } from './helpers';
 
 export function computeStats(players: Player[]): TournamentStats {
-  const realPlayers = players.filter((p) => !checkIsBye(p.name) && !p.bye);
-  const explicitByes = players.filter((p) => checkIsBye(p.name) || p.bye).length;
+  const realPlayers = players.filter((p) => !checkIsBye(p.name));
   const total = realPlayers.length;
   const size = nextPow2(total || 1);
-  const byes = Math.max(size - total, explicitByes);
-  const seeds = players.filter((p) => p.seed && !checkIsBye(p.name)).length;
+  const byes = size - total;
+  const seeds = realPlayers.filter((p) => Boolean(p.seed)).length;
   return { total, size, byes, seeds };
 }
 

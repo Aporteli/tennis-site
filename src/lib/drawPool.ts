@@ -5,7 +5,7 @@ import { checkIsBye } from './tournament/helpers';
 export function uniqueDrawEntries(players: Player[], mode: Mode): Player[] {
   const seenId = new Set<string>();
   const unique = players.filter((p) => {
-    if (!p?.name || checkIsBye(p.name) || p.bye) return false;
+    if (!p?.name || checkIsBye(p.name)) return false;
     const key = p.id ?? p.name;
     if (seenId.has(key)) return false;
     seenId.add(key);

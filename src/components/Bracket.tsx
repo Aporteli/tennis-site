@@ -14,7 +14,7 @@ interface Props {
 
 export function Bracket({ bracketData, matchDetails, mode, onMatchClick }: Props) {
   const round0 = bracketData[0];
-  const hasPlayers = round0?.some((p) => p != null && !p.bye && !checkIsBye(p.name));
+  const hasPlayers = round0?.some((p) => p != null && !checkIsBye(p.name));
   if (!hasPlayers) return null;
 
   const currentSize = round0.length;
