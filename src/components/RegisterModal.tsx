@@ -31,6 +31,47 @@ const emptyHoneypots = (): Record<HoneypotKey, string> =>
 
 const MIN_FILL_TIME_MS = 2000;
 
+/** Georgian letters + Georgian Supplement + space + hyphen. */
+const GEORGIAN_NAME_RE = /^[\u10A0-\u10FF\u1C90-\u1CBF\u2D00-\u2D2F\s\-]+$/;
+
+function isGeorgianName(value: string): boolean {
+  const trimmed = value.trim();
+  return trimmed.length >= 2 && GEORGIAN_NAME_RE.test(trimmed);
+}
+
+const inputClass =
+  'w-full rounded-xl border border-line bg-card pl-3 pr-3 py-2.5 text-sm text-ink placeholder:text-ink-3 outline-none focus:border-accent-2 focus:ring-1 focus:ring-accent-2 transition';
+
+function NameInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
+  const touched = value.length > 0;
+  const valid = isGeorgianName(value);
+  return (
+    <div>
+      <input
+        type="text"
+        required
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={`${inputClass} ${
+          touched && !valid ? 'border-danger/60 focus:border-danger' : ''
+        }`}
+      />
+      {touched && !valid && (
+        <p className="mt-1 text-[11px] text-danger">მხოლოდ ქართული ასოები</p>
+      )}
+    </div>
+  );
+}
+
 export default function RegisterModal({
   isOpen,
   mode,
@@ -49,7 +90,6 @@ export default function RegisterModal({
   const [duplicateOf, setDuplicateOf] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
-  // ── Honeypot state ────────────────────────────────────────────────
   const [honeypots, setHoneypots] =
     useState<Record<HoneypotKey, string>>(emptyHoneypots);
   const openedAtRef = useRef<number>(Date.now());
@@ -75,21 +115,23 @@ export default function RegisterModal({
     }
 
     if (
-      !firstName.trim() ||
-      !lastName.trim() ||
+      !isGeorgianName(firstName) ||
+      !isGeorgianName(lastName) ||
       !phoneDigitsRegex.test(phone.trim())
     ) {
-      setError('გთხოვთ შეავსოთ სახელი, გვარი და ტელეფონის ნომერი');
+      setError(
+        'სახელი და გვარი უნდა იყოს ქართული ასოებით, ტელეფონი — 9 ციფრი',
+      );
       return;
     }
     if (
       matchType === 'doubles' &&
-      (!partnerFirstName.trim() ||
-        !partnerLastName.trim() ||
+      (!isGeorgianName(partnerFirstName) ||
+        !isGeorgianName(partnerLastName) ||
         !phoneDigitsRegex.test(partnerPhone.trim()))
     ) {
       setError(
-        'გთხოვთ შეავსოთ პარტნიორის სახელი, გვარი და ტელეფონის ნომერი',
+        'პარტნიორის სახელი და გვარი უნდა იყოს ქართული ასოებით, ტელეფონი — 9 ციფრი',
       );
       return;
     }
@@ -133,7 +175,6 @@ export default function RegisterModal({
       }
 
       if (!res.ok) {
-        // 409 = server blocked a near-duplicate of an approved pair/player
         if (res.status === 409) {
           setError(data.error || 'ეს რეგისტრაცია დუბლირებულია.');
           setDuplicateOf(data.duplicateOf ?? null);
@@ -170,9 +211,6 @@ export default function RegisterModal({
     openedAtRef.current = Date.now();
     onClose();
   };
-
-  const inputClass =
-    'w-full rounded-xl border border-line bg-card pl-3 pr-3 py-2.5 text-sm text-ink placeholder:text-ink-3 outline-none focus:border-accent-2 focus:ring-1 focus:ring-accent-2 transition';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
@@ -380,21 +418,15 @@ export default function RegisterModal({
 
             {/* Player fields */}
             <div className="space-y-4">
-              <input
-                type="text"
-                required
+              <NameInput
                 value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
+                onChange={setFirstName}
                 placeholder="სახელი"
-                className={inputClass}
               />
-              <input
-                type="text"
-                required
+              <NameInput
                 value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
+                onChange={setLastName}
                 placeholder="გვარი"
-                className={inputClass}
               />
               <input
                 type="tel"
@@ -421,21 +453,15 @@ export default function RegisterModal({
                   </h4>
                 </div>
 
-                <input
-                  type="text"
-                  required
+                <NameInput
                   value={partnerFirstName}
-                  onChange={(e) => setPartnerFirstName(e.target.value)}
+                  onChange={setPartnerFirstName}
                   placeholder="სახელი"
-                  className={inputClass}
                 />
-                <input
-                  type="text"
-                  required
+                <NameInput
                   value={partnerLastName}
-                  onChange={(e) => setPartnerLastName(e.target.value)}
+                  onChange={setPartnerLastName}
                   placeholder="გვარი"
-                  className={inputClass}
                 />
                 <input
                   type="tel"

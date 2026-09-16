@@ -14,18 +14,15 @@ import { levenshtein } from '../../../lib/levenshtein';
 // Constants
 // ─────────────────────────────────────────────────────────────
 
-const HONEYPOT_FIELDS = [
-  'website',
-  'company',
-  'email2',
-  'username',
-  'fax',
-  'address',
-  'url',
-] as const;
+const HONEYPOT_FIELDS = ['website', 'company', 'email2', 'username', 'fax', 'address', 'url'] as const;
 
 const PHONE_RE = /^\d{9}$/;
+
+/** Georgian letters + Georgian Supplement + space + hyphen. */
+const GEORGIAN_NAME_RE = /^[\u10A0-\u10FF\u1C90-\u1CBF\u2D00-\u2D2F\s\-]+$/;
+
 const MAX_NAME_LEN = 80;
+const MIN_NAME_LEN = 2;
 const MIN_FORM_FILL_MS = 2000;
 
 // ─────────────────────────────────────────────────────────────
@@ -44,9 +41,17 @@ function buildDisplayName(p: {
   return `${self} / ${other}`;
 }
 
+/**
+ * Trim, collapse spaces, cap length, and reject anything that isn't Georgian.
+ * Returns '' for invalid input so callers can `if (!cleanName(x))`.
+ */
 function cleanName(raw: unknown): string {
   if (typeof raw !== 'string') return '';
-  return raw.trim().slice(0, MAX_NAME_LEN);
+  const trimmed = raw.trim().replace(/\s+/g, ' ');
+  if (trimmed.length < MIN_NAME_LEN) return '';
+  const capped = trimmed.slice(0, MAX_NAME_LEN);
+  if (!GEORGIAN_NAME_RE.test(capped)) return '';
+  return capped;
 }
 
 function parsePhone(raw: unknown): string | null {
@@ -107,26 +112,15 @@ async function findBlockingDuplicate(input: {
       `${c.partner.firstName} ${c.partner.lastName}`.toLowerCase().trim(),
     ];
     const exPhones: [string, string] = [c.phone, c.partner.phone];
-    const inNames: [string, string] = [
-      input.names[0].toLowerCase().trim(),
-      input.names[1].toLowerCase().trim(),
-    ];
+    const inNames: [string, string] = [input.names[0].toLowerCase().trim(), input.names[1].toLowerCase().trim()];
     const inPhones: [string, string] = input.phones;
 
-    const directPhones =
-      levenshtein(inPhones[0], exPhones[0]) <= 1 &&
-      levenshtein(inPhones[1], exPhones[1]) <= 1;
-    const swappedPhones =
-      levenshtein(inPhones[0], exPhones[1]) <= 1 &&
-      levenshtein(inPhones[1], exPhones[0]) <= 1;
+    const directPhones = levenshtein(inPhones[0], exPhones[0]) <= 1 && levenshtein(inPhones[1], exPhones[1]) <= 1;
+    const swappedPhones = levenshtein(inPhones[0], exPhones[1]) <= 1 && levenshtein(inPhones[1], exPhones[0]) <= 1;
     const bothPhones = directPhones || swappedPhones;
 
-    const directNames =
-      levenshtein(inNames[0], exNames[0]) <= 2 &&
-      levenshtein(inNames[1], exNames[1]) <= 2;
-    const swappedNames =
-      levenshtein(inNames[0], exNames[1]) <= 2 &&
-      levenshtein(inNames[1], exNames[0]) <= 2;
+    const directNames = levenshtein(inNames[0], exNames[0]) <= 2 && levenshtein(inNames[1], exNames[1]) <= 2;
+    const swappedNames = levenshtein(inNames[0], exNames[1]) <= 2 && levenshtein(inNames[1], exNames[0]) <= 2;
     const namesNear = directNames || swappedNames;
 
     const onePhoneNear =
@@ -218,31 +212,22 @@ export async function POST(req: Request) {
     // ── 0. Rate limit by IP (5 registrations / hour) ──────────────
     const ip = getClientIp(req);
     const rl = checkRateLimit(`register:${ip}`, 5, 60 * 60_000);
-    // if (!rl.allowed) {
-    //   return NextResponse.json(
-    //     { error: 'ძალიან ბევრი მცდელობა. სცადეთ მოგვიანებით.' },
-    //     {
-    //       status: 429,
-    //       headers: {
-    //         'Retry-After': String(Math.ceil(rl.retryAfterMs / 1000)),
-    //       },
-    //     },
-    //   );
-    // }
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'ძალიან ბევრი მცდელობა. სცადეთ მოგვიანებით.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(Math.ceil(rl.retryAfterMs / 1000)),
+          },
+        },
+      );
+    }
 
     const body = await req.json();
-    const {
-      firstName,
-      lastName,
-      phone,
-      mode: rawMode = 'singles',
-      partner,
-      openedAt,
-      ...honeypots
-    } = body ?? {};
+    const { firstName, lastName, phone, mode: rawMode = 'singles', partner, openedAt, ...honeypots } = body ?? {};
 
-    const mode: 'singles' | 'doubles' =
-      rawMode === 'doubles' ? 'doubles' : 'singles';
+    const mode: 'singles' | 'doubles' = rawMode === 'doubles' ? 'doubles' : 'singles';
 
     // ── 1. Honeypot check ─────────────────────────────────────────
     for (const field of HONEYPOT_FIELDS) {
@@ -266,7 +251,9 @@ export async function POST(req: Request) {
 
     if (!cleanFirst || !cleanLast || !cleanPhone) {
       return NextResponse.json(
-        { error: 'სახელი, გვარი და ტელეფონის ნომერი სავალდებულოა' },
+        {
+          error: 'სახელი და გვარი უნდა იყოს ქართული ასოებით, ტელეფონი — 9 ციფრი',
+        },
         { status: 400 },
       );
     }
@@ -279,16 +266,15 @@ export async function POST(req: Request) {
 
       if (!pFirst || !pLast || !pPhone) {
         return NextResponse.json(
-          { error: 'პარტნიორის სახელი, გვარი და ტელეფონი სავალდებულოა' },
+          {
+            error: 'პარტნიორის სახელი და გვარი უნდა იყოს ქართული ასოებით, ტელეფონი — 9 ციფრი',
+          },
           { status: 400 },
         );
       }
 
       if (cleanPhone === pPhone) {
-        return NextResponse.json(
-          { error: 'პარტნიორის ნომერი უნდა განსხვავდებოდეს თქვენისგან' },
-          { status: 400 },
-        );
+        return NextResponse.json({ error: 'პარტნიორის ნომერი უნდა განსხვავდებოდეს თქვენისგან' }, { status: 400 });
       }
 
       const blocking = await findBlockingDuplicate({
@@ -299,8 +285,7 @@ export async function POST(req: Request) {
       if (blocking) {
         return NextResponse.json(
           {
-            error:
-              'ეს წყვილი უკვე დარეგისტრირებულია. თუ ფიქრობთ, რომ ეს შეცდომაა, დაუკავშირდით ადმინისტრატორს.',
+            error: 'ეს წყვილი უკვე დარეგისტრირებულია. თუ ფიქრობთ, რომ ეს შეცდომაა, დაუკავშირდით ადმინისტრატორს.',
             duplicateOf: blocking.name,
           },
           { status: 409 },
@@ -347,8 +332,7 @@ export async function POST(req: Request) {
     if (blockingSingle) {
       return NextResponse.json(
         {
-          error:
-            'ეს მოთამაშე უკვე დარეგისტრირებულია. თუ ფიქრობთ, რომ ეს შეცდომაა, დაუკავშირდით ადმინისტრატორს.',
+          error: 'ეს მოთამაშე უკვე დარეგისტრირებულია. თუ ფიქრობთ, რომ ეს შეცდომაა, დაუკავშირდით ადმინისტრატორს.',
           duplicateOf: blockingSingle.name,
         },
         { status: 409 },
@@ -391,12 +375,7 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: 'Player ID is required' }, { status: 400 });
     }
 
-    const assignTo =
-      assignMode === 'doubles'
-        ? 'doubles'
-        : assignMode === 'singles'
-          ? 'singles'
-          : null;
+    const assignTo = assignMode === 'doubles' ? 'doubles' : assignMode === 'singles' ? 'singles' : null;
 
     const existing = await prisma.player.findUnique({
       where: { id },
@@ -410,9 +389,7 @@ export async function PATCH(req: Request) {
       const otherMode = assignTo === 'singles' ? 'doubles' : 'singles';
 
       const playerName =
-        assignTo === 'doubles'
-          ? buildDisplayName(existing)
-          : `${existing.firstName} ${existing.lastName}`.trim();
+        assignTo === 'doubles' ? buildDisplayName(existing) : `${existing.firstName} ${existing.lastName}`.trim();
 
       await removePlayerFromTournament(otherMode, id, playerName);
 
