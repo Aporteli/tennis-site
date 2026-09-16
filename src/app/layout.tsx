@@ -21,7 +21,7 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Poti Special Open 2026',
+  title: 'Poti Open 5',
   description: 'Tennis tournament bracket',
   icons: {
     icon: '/tennis.svg', 
