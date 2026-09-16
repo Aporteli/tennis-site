@@ -156,8 +156,8 @@ function PlayerStatusRow({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 border-t border-line/30 bg-overlay/20 px-3 py-2.5 sm:px-4">
-        <div className="flex flex-1 items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 border-t border-line/30 bg-overlay/20 px-3 py-2.5 sm:px-4">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => player.id && onStatusChange?.(player.id, 'APPROVED')}
@@ -320,9 +320,9 @@ export function PlayerValidationPanel({
   return (
     <div className="space-y-4">
       {/* ── Toolbar ─────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-3 border-b border-line/40 pb-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-1 rounded-xl border border-line/40 bg-overlay/30 p-1">
-          {tabs.map(({ key, label, icon: Icon, count, tone }) => {
+      <div className="flex flex-col gap-3 border-b border-line/40 pb-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="grid w-full min-w-0 grid-cols-1 gap-1 rounded-xl border border-line/40 bg-overlay/30 p-1 sm:grid-cols-3">
+          {tabs.map(({ key, label, count, tone }) => {
             const active = tab === key;
             return (
               <button
@@ -332,13 +332,13 @@ export function PlayerValidationPanel({
                   setTab(key);
                   clearSelection();
                 }}
-                className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition ${
+                className={`flex min-w-0 w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold sm:flex-col sm:items-center sm:justify-center sm:px-2 sm:text-center ${
                   active ? 'bg-surface text-ink shadow-sm' : 'text-ink-2 hover:text-ink'
                 }`}
               >
-                {label}
+                <span className="min-w-0 break-words">{label}</span>
                 <span
-                  className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${TONE_PILL[tone]}`}
+                  className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-bold ${TONE_PILL[tone]}`}
                 >
                   {count}
                 </span>
@@ -347,8 +347,8 @@ export function PlayerValidationPanel({
           })}
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 sm:w-64">
+        <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:items-center lg:w-auto">
+          <div className="relative min-w-0 flex-1 sm:w-64">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-2" />
             <input
               type="text"
@@ -360,13 +360,13 @@ export function PlayerValidationPanel({
           </div>
 
           {/* ── Live mode dropdown ─────────────────────────────── */}
-          <div ref={modeRef} className="relative">
+          <div ref={modeRef} className="relative w-full min-w-0 sm:w-auto">
             <button
               type="button"
               onClick={() => setModeOpen((v) => !v)}
               aria-haspopup="listbox"
               aria-expanded={modeOpen}
-              className="inline-flex h-[30px] min-w-[150px] cursor-pointer items-center gap-2 rounded-lg border border-line/40 bg-surface pl-8 pr-2.5 text-xs font-medium text-ink transition hover:border-accent/40 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/40"
+              className="relative inline-flex h-[34px] w-full min-w-0 cursor-pointer items-center gap-2 rounded-lg border border-line/40 bg-surface pl-8 pr-2.5 text-xs font-medium text-ink transition hover:border-accent/40 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/40 sm:h-[30px] sm:w-auto sm:min-w-[150px]"
             >
               <Filter className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-2" />
               <span className="flex-1 truncate text-left">{currentModeLabel}</span>

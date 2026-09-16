@@ -14,10 +14,10 @@ type DrawControlsProps = {
 
 function ModeToggle({ mode, onSwitchMode }: Pick<DrawControlsProps, 'mode' | 'onSwitchMode'>) {
   return (
-    <div className="flex rounded-xl border border-line/60 bg-surface p-1 shadow-inner transition-all duration-500">
+    <div className="flex w-full rounded-xl border border-line/60 bg-surface p-1 shadow-inner transition-all duration-500 sm:w-auto">
       <button
         onClick={() => onSwitchMode('singles')}
-        className={`flex items-center gap-1 cursor-pointer rounded-lg px-5 py-2 text-[13px] font-bold 
+        className={`flex flex-1 items-center justify-center gap-1 cursor-pointer rounded-lg px-3 py-2 text-[13px] font-bold sm:flex-none sm:px-5 
           transition-all duration-300
           ${
             mode === 'singles'
@@ -34,7 +34,7 @@ function ModeToggle({ mode, onSwitchMode }: Pick<DrawControlsProps, 'mode' | 'on
 
       <button
         onClick={() => onSwitchMode('doubles')}
-        className={`flex items-center gap-1 cursor-pointer rounded-lg px-5 py-2 text-[13px] font-bold 
+        className={`flex flex-1 items-center justify-center gap-1 cursor-pointer rounded-lg px-3 py-2 text-[13px] font-bold sm:flex-none sm:px-5 
           transition-all duration-300
           ${
             mode === 'doubles'
