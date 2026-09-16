@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { checkIsBye } from '../lib/tournament/helpers';
 import { buildInitialBracket } from '../lib/drawInit';
-import { playerBelongsToMode } from '../lib/players';
+import { uniqueDrawEntries } from '../lib/drawPool';
 import type { BracketData, MatchDetails, Mode, Player, TournamentState } from '../lib/types';
 
 interface Params {
@@ -12,18 +12,15 @@ interface Params {
   mode: Mode;
   players: Player[];
   playersRef: MutableRefObject<Player[]>;
+  approvedForMode: Player[];
   drawingRef: MutableRefObject<boolean>;
   setMode: Dispatch<SetStateAction<Mode>>;
   setIsDrawing: Dispatch<SetStateAction<boolean>>;
   setUndoStack: Dispatch<SetStateAction<string[]>>;
   setBracketData: Dispatch<SetStateAction<BracketData>>;
   setMatchDetails: Dispatch<SetStateAction<MatchDetails>>;
-  persist: (
-    bd: BracketData,
-    md: MatchDetails,
-    pl: Player[],
-    opts?: { revalidate?: boolean },
-  ) => Promise<void>;  pushHistory: () => void;
+  persist: (bd: BracketData, md: MatchDetails, pl: Player[], opts?: { revalidate?: boolean }) => Promise<void>;
+  pushHistory: () => void;
 }
 
 export function useDrawGeneration({
@@ -31,6 +28,7 @@ export function useDrawGeneration({
   mode,
   players,
   playersRef,
+  approvedForMode,
   drawingRef,
   setMode,
   setIsDrawing,
@@ -52,20 +50,18 @@ export function useDrawGeneration({
   const resetDraw = useCallback(() => {
     pushHistory();
 
-    const currentPlayers = players.filter((p) => p && !checkIsBye(p.name) && !p.bye && playerBelongsToMode(p, mode));
+    const currentPlayers = uniqueDrawEntries(approvedForMode, mode);
     const { bracketData, matchDetails } = buildInitialBracket(currentPlayers);
     setBracketData(bracketData);
     setMatchDetails(matchDetails);
     persist(bracketData, matchDetails, currentPlayers);
-  }, [mode, players, persist, pushHistory, setBracketData, setMatchDetails]);
+  }, [mode, approvedForMode, persist, pushHistory, setBracketData, setMatchDetails]);
 
   // ── Draw generation ─────────────────────────────────────────────────
   const generateDraw = useCallback(() => {
     if (drawingRef.current) return;
 
-    const currentPlayers = playersRef.current.filter(
-      (p) => p && !checkIsBye(p.name) && !p.bye && playerBelongsToMode(p, mode),
-    );
+    const currentPlayers = uniqueDrawEntries(approvedForMode, mode);
     if (currentPlayers.length < 2) return;
 
     pushHistory();
@@ -91,9 +87,7 @@ export function useDrawGeneration({
     const persistStep = () => {
       const snapshotBd = bd.map((r) => [...r]);
       const snapshotMd = md.map((r) => [...r]);
-      writeChain = writeChain.then(() =>
-        persist(snapshotBd, snapshotMd, currentPlayers, { revalidate: false }),
-      );
+      writeChain = writeChain.then(() => persist(snapshotBd, snapshotMd, currentPlayers, { revalidate: false }));
     };
 
     const intervalId = setInterval(() => {
@@ -146,7 +140,7 @@ export function useDrawGeneration({
     }, 1000);
 
     drawIntervalRef.current = intervalId;
-  }, [mode, persist, pushHistory, playersRef, drawingRef, setIsDrawing, setBracketData, setMatchDetails]);
+  }, [mode, persist, pushHistory, approvedForMode, drawingRef, setIsDrawing, setBracketData, setMatchDetails]);
 
   // ── Auto-generate from ?generateDraw=... URL param ──────────────────
   useEffect(() => {

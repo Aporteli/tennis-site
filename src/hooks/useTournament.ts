@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo } from 'react';
 import { computeStats } from '../lib/tournament/bracket';
+import { uniqueDrawEntries } from '../lib/drawPool';
 import { useTournamentState } from './useTournamentState';
 import { useRemoteSync } from './useRemoteSync';
 import { useUndoHistory } from './useUndoHistory';
@@ -29,13 +30,27 @@ export function useTournament() {
     playersRef,
   } = useTournamentState();
 
-  const stats = useMemo(() => computeStats(players), [players]);
+  const approvedForMode = useMemo(() => {
+    const raw = registrations.filter((p) => {
+      if (p.status !== 'APPROVED') return false;
+      if (mode === 'doubles') {
+        return (p.assignedMode ?? p.mode) === 'doubles' || Boolean(p.partner);
+      }
+      return (p.assignedMode ?? p.mode) !== 'doubles' && !p.partner;
+    });
+    return uniqueDrawEntries(raw, mode);
+  }, [registrations, mode]);
 
   const hasExistingDraw = useMemo(() => {
     if (!bracketData[0]) return false;
     const placed = bracketData[0].filter((p) => p !== null).length;
-    return placed > stats.seeds;
-  }, [bracketData, stats.seeds]);
+    const seeds = players.filter((p) => p.seed && p.name).length;
+    return placed > seeds;
+  }, [bracketData, players]);
+  const stats = useMemo(() => {
+    const pool = hasExistingDraw ? uniqueDrawEntries(players, mode) : approvedForMode;
+    return computeStats(pool);
+  }, [hasExistingDraw, players, approvedForMode, mode]);
 
   const { remote, persist, mutate, mutateAll } = useRemoteSync({
     mode,
@@ -72,6 +87,7 @@ export function useTournament() {
     mode,
     players,
     playersRef,
+    approvedForMode,
     drawingRef,
     setMode,
     setIsDrawing,

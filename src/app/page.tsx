@@ -38,7 +38,8 @@ export default function Page() {
   const [pendingWo, setPendingWo] = useState<PendingWalkover | null>(null);
 
   const isAdmin = !!user;
-  const numRounds = bracketData[0] ? Math.log2(bracketData[0].length) : 0;
+  const numRounds =
+    hasExistingDraw && bracketData[0] ? Math.log2(bracketData[0].length) : stats.size > 1 ? Math.log2(stats.size) : 0;
   const targetDate = new Date('2026-09-17T12:00:00Z');
 
   const handleAuthClick = () => {
@@ -95,12 +96,7 @@ export default function Page() {
       <Controls mode={mode} onModeChange={switchMode} />
 
       {hasExistingDraw || isDrawing ? (
-        <Bracket
-          bracketData={bracketData}
-          matchDetails={matchDetails}
-          mode={mode}
-          onMatchClick={handleMatchClick}
-        />
+        <Bracket bracketData={bracketData} matchDetails={matchDetails} mode={mode} onMatchClick={handleMatchClick} />
       ) : (
         <BracketEmptyState
           registrations={registrations}
@@ -109,11 +105,7 @@ export default function Page() {
         />
       )}
 
-      <RegisterModal
-        isOpen={registerOpen}
-        mode={mode}
-        onClose={() => setRegisterOpen(false)}
-      />
+      <RegisterModal isOpen={registerOpen} mode={mode} onClose={() => setRegisterOpen(false)} />
 
       <LoginModal isOpen={loginOpen} onClose={() => setLoginOpen(false)} />
 
