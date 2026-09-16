@@ -3,13 +3,12 @@ import type { TournamentStats } from '../../lib/types';
 interface Props {
   label: string;
   stats: TournamentStats;
-  className?: string;
 }
 
-export function StatsStrip({ label, stats, className = '' }: Props) {
+export function StatsStrip({ label, stats }: Props) {
   return (
     <div
-      className={`flex items-center gap-1.5 overflow-x-auto whitespace-nowrap font-mono text-[11px] sm:gap-2.5 sm:text-xs ${className}`}
+      className={`flex items-center gap-1.5 overflow-x-auto whitespace-nowrap font-mono text-[11px] sm:gap-2.5 sm:text-xs`}
     >
       <Chip label={label} value={stats.total} />
       <Dot />
