@@ -53,7 +53,7 @@ export function Header({
       </div>
 
       {/* Row 2 — live badge + stats strip */}
-      <div className="mt-2 flex items-center gap-2 overflow-hidden sm:mt-3">
+      <div className="mt-2 flex items-center  gap-2 overflow-hidden sm:mt-3">
         <TournamentBadge mode={mode} size={size} numRounds={numRounds} />
         <StatsStrip label={label} stats={stats} className="flex-1" />
       </div>

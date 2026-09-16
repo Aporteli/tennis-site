@@ -8,6 +8,25 @@ import {
 } from '../../../lib/tournament-repo';
 import { verifySessionToken, SESSION_COOKIE } from '../../../lib/auth';
 import { checkRateLimit, getClientIp } from '../../../lib/rate-limit';
+import { levenshtein } from '../../../lib/levenshtein';
+
+// ─────────────────────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────────────────────
+
+const HONEYPOT_FIELDS = [
+  'website',
+  'company',
+  'email2',
+  'username',
+  'fax',
+  'address',
+  'url',
+] as const;
+
+const PHONE_RE = /^\d{9}$/;
+const MAX_NAME_LEN = 80;
+const MIN_FORM_FILL_MS = 2000;
 
 // ─────────────────────────────────────────────────────────────
 // Helpers
@@ -24,15 +43,6 @@ function buildDisplayName(p: {
   const other = `${p.partner.firstName} ${p.partner.lastName}`.trim();
   return `${self} / ${other}`;
 }
-
-/** Honeypot names — must match the client's `HONEYPOT_NAMES`. */
-const HONEYPOT_FIELDS = ['website', 'company', 'email2', 'username', 'fax', 'address', 'url'] as const;
-
-/** 9-digit phone, exactly. Server never trusts the client's regex. */
-const PHONE_RE = /^\d{9}$/;
-
-const MAX_NAME_LEN = 80;
-const MIN_FORM_FILL_MS = 2000;
 
 function cleanName(raw: unknown): string {
   if (typeof raw !== 'string') return '';
@@ -63,6 +73,103 @@ function fakeSuccess(mode: 'singles' | 'doubles') {
     mode: 'singles',
     status: 'PENDING',
   };
+}
+
+/**
+ * Search approved doubles pairs for one that would duplicate the incoming pair.
+ *
+ * The rule is a "double lock":
+ *   - Both names within 2 edits of the approved pair's names (order-independent)
+ *   - AND at least one phone within 1 edit of the corresponding approved phone
+ *
+ * Both conditions must hold, otherwise we'd risk blocking legitimate new pairs.
+ */
+async function findBlockingDuplicate(input: {
+  names: [string, string];
+  phones: [string, string];
+}): Promise<{ id: string; name: string } | null> {
+  const candidates = await prisma.player.findMany({
+    where: {
+      mode: 'doubles',
+      status: 'APPROVED',
+      partnerId: { not: null },
+    },
+    include: { partner: true },
+  });
+
+  const seen = new Set<string>();
+
+  for (const c of candidates) {
+    if (!c.partner) continue;
+    const key = [c.id, c.partner.id].sort().join('::');
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const exNames: [string, string] = [
+      `${c.firstName} ${c.lastName}`.toLowerCase().trim(),
+      `${c.partner.firstName} ${c.partner.lastName}`.toLowerCase().trim(),
+    ];
+    const exPhones: [string, string] = [c.phone, c.partner.phone];
+    const inNames: [string, string] = [
+      input.names[0].toLowerCase().trim(),
+      input.names[1].toLowerCase().trim(),
+    ];
+    const inPhones: [string, string] = input.phones;
+
+    // Names must match in either order.
+    const directNames =
+      levenshtein(inNames[0], exNames[0]) <= 2 &&
+      levenshtein(inNames[1], exNames[1]) <= 2;
+    const swappedNames =
+      levenshtein(inNames[0], exNames[1]) <= 2 &&
+      levenshtein(inNames[1], exNames[0]) <= 2;
+
+    if (!directNames && !swappedNames) continue;
+
+    // Phones: only one close match is enough to confirm.
+    const phoneNear =
+      levenshtein(inPhones[0], exPhones[0]) <= 1 ||
+      levenshtein(inPhones[0], exPhones[1]) <= 1 ||
+      levenshtein(inPhones[1], exPhones[0]) <= 1 ||
+      levenshtein(inPhones[1], exPhones[1]) <= 1;
+
+    if (phoneNear) {
+      return {
+        id: c.id,
+        name: `${c.firstName} ${c.lastName} / ${c.partner.firstName} ${c.partner.lastName}`,
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Search approved singles for one that would duplicate the incoming player.
+ * Requires name within 2 edits AND phone within 1 edit.
+ */
+async function findBlockingSingle(input: {
+  name: string;
+  phone: string;
+}): Promise<{ id: string; name: string } | null> {
+  const approved = await prisma.player.findMany({
+    where: { mode: 'singles', status: 'APPROVED' },
+    select: { id: true, firstName: true, lastName: true, phone: true },
+  });
+
+  const incomingName = input.name.toLowerCase().trim();
+
+  for (const s of approved) {
+    const name = `${s.firstName} ${s.lastName}`.toLowerCase().trim();
+    const nameNear = levenshtein(incomingName, name) <= 2;
+    const phoneNear = levenshtein(input.phone, s.phone) <= 1;
+
+    if (nameNear && phoneNear) {
+      return { id: s.id, name: `${s.firstName} ${s.lastName}` };
+    }
+  }
+
+  return null;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -109,17 +216,17 @@ export async function POST(req: Request) {
     // ── 0. Rate limit by IP (5 registrations / hour) ──────────────
     const ip = getClientIp(req);
     const rl = checkRateLimit(`register:${ip}`, 5, 60 * 60_000);
-    if (!rl.allowed) {
-      return NextResponse.json(
-        { error: 'ძალიან ბევრი მცდელობა. სცადეთ მოგვიანებით.' },
-        {
-          status: 429,
-          headers: {
-            'Retry-After': String(Math.ceil(rl.retryAfterMs / 1000)),
-          },
-        },
-      );
-    }
+    // if (!rl.allowed) {
+    //   return NextResponse.json(
+    //     { error: 'ძალიან ბევრი მცდელობა. სცადეთ მოგვიანებით.' },
+    //     {
+    //       status: 429,
+    //       headers: {
+    //         'Retry-After': String(Math.ceil(rl.retryAfterMs / 1000)),
+    //       },
+    //     },
+    //   );
+    // }
 
     const body = await req.json();
     const {
@@ -128,15 +235,14 @@ export async function POST(req: Request) {
       phone,
       mode: rawMode = 'singles',
       partner,
-      openedAt, // ms epoch, sent by the client
-      ...honeypots // remaining keys are honeypot fields if present
+      openedAt,
+      ...honeypots
     } = body ?? {};
 
-    const mode: 'singles' | 'doubles' = rawMode === 'doubles' ? 'doubles' : 'singles';
+    const mode: 'singles' | 'doubles' =
+      rawMode === 'doubles' ? 'doubles' : 'singles';
 
     // ── 1. Honeypot check ─────────────────────────────────────────
-    // A real client never fills these. Silent fake success so the bot
-    // learns nothing and we never touch the DB.
     for (const field of HONEYPOT_FIELDS) {
       const value = honeypots[field];
       if (typeof value === 'string' && value.trim() !== '') {
@@ -145,37 +251,62 @@ export async function POST(req: Request) {
     }
 
     // ── 2. Timing check ──────────────────────────────────────────
-    // If the form was filled in under MIN_FORM_FILL_MS, it's automated.
     if (typeof openedAt === 'number' && Number.isFinite(openedAt)) {
       if (Date.now() - openedAt < MIN_FORM_FILL_MS) {
         return NextResponse.json(fakeSuccess(mode), { status: 201 });
       }
     }
 
-    // ── 3. Server-side validation (never trust the client) ────────
+    // ── 3. Server-side validation ─────────────────────────────────
     const cleanFirst = cleanName(firstName);
     const cleanLast = cleanName(lastName);
     const cleanPhone = parsePhone(phone);
 
     if (!cleanFirst || !cleanLast || !cleanPhone) {
-      return NextResponse.json({ error: 'სახელი, გვარი და ტელეფონის ნომერი სავალდებულოა' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'სახელი, გვარი და ტელეფონის ნომერი სავალდებულოა' },
+        { status: 400 },
+      );
     }
 
-    // ── DOUBLES: create two players + link them ───────────────────
+    // ── DOUBLES ───────────────────────────────────────────────────
     if (mode === 'doubles') {
       const pFirst = cleanName(partner?.firstName);
       const pLast = cleanName(partner?.lastName);
       const pPhone = parsePhone(partner?.phone);
 
       if (!pFirst || !pLast || !pPhone) {
-        return NextResponse.json({ error: 'პარტნიორის სახელი, გვარი და ტელეფონი სავალდებულოა' }, { status: 400 });
+        return NextResponse.json(
+          { error: 'პარტნიორის სახელი, გვარი და ტელეფონი სავალდებულოა' },
+          { status: 400 },
+        );
       }
 
-      // Guard against registering the same person as their own partner.
       if (cleanPhone === pPhone) {
-        return NextResponse.json({ error: 'პარტნიორის ნომერი უნდა განსხვავდებოდეს თქვენისგან' }, { status: 400 });
+        return NextResponse.json(
+          { error: 'პარტნიორის ნომერი უნდა განსხვავდებოდეს თქვენისგან' },
+          { status: 400 },
+        );
       }
 
+      // ── Block near-duplicate of an already-approved pair ──────
+      const blocking = await findBlockingDuplicate({
+        names: [`${cleanFirst} ${cleanLast}`, `${pFirst} ${pLast}`],
+        phones: [cleanPhone, pPhone],
+      });
+
+      if (blocking) {
+        return NextResponse.json(
+          {
+            error:
+              'ეს წყვილი უკვე დარეგისტრირებულია. თუ ფიქრობთ, რომ ეს შეცდომაა, დაუკავშირდით ადმინისტრატორს.',
+            duplicateOf: blocking.name,
+          },
+          { status: 409 },
+        );
+      }
+
+      // ── Create the pair ───────────────────────────────────────
       const [playerA, playerB] = await prisma.$transaction(async (tx) => {
         const a = await tx.player.create({
           data: {
@@ -206,7 +337,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ players: [playerA, playerB] }, { status: 201 });
     }
 
-    // ── SINGLES ──────────────────────────────────────────────────
+    // ── SINGLES ───────────────────────────────────────────────────
+    const blockingSingle = await findBlockingSingle({
+      name: `${cleanFirst} ${cleanLast}`,
+      phone: cleanPhone,
+    });
+
+    if (blockingSingle) {
+      return NextResponse.json(
+        {
+          error:
+            'ეს მოთამაშე უკვე დარეგისტრირებულია. თუ ფიქრობთ, რომ ეს შეცდომაა, დაუკავშირდით ადმინისტრატორს.',
+          duplicateOf: blockingSingle.name,
+        },
+        { status: 409 },
+      );
+    }
+
     const newPlayer = await prisma.player.create({
       data: {
         firstName: cleanFirst,
@@ -227,9 +374,6 @@ export async function POST(req: Request) {
 // ─────────────────────────────────────────────────────────────
 // 3. PATCH — update status / seed / info / assign to tournament
 // ─────────────────────────────────────────────────────────────
-// ─────────────────────────────────────────────────────────────
-// 3. PATCH — update status / seed / info / assign to tournament
-// ─────────────────────────────────────────────────────────────
 export async function PATCH(req: Request) {
   try {
     // ── Auth: every PATCH is a mutation, no exceptions ────────────
@@ -246,7 +390,12 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: 'Player ID is required' }, { status: 400 });
     }
 
-    const assignTo = assignMode === 'doubles' ? 'doubles' : assignMode === 'singles' ? 'singles' : null;
+    const assignTo =
+      assignMode === 'doubles'
+        ? 'doubles'
+        : assignMode === 'singles'
+          ? 'singles'
+          : null;
 
     const existing = await prisma.player.findUnique({
       where: { id },
@@ -260,7 +409,9 @@ export async function PATCH(req: Request) {
       const otherMode = assignTo === 'singles' ? 'doubles' : 'singles';
 
       const playerName =
-        assignTo === 'doubles' ? buildDisplayName(existing) : `${existing.firstName} ${existing.lastName}`.trim();
+        assignTo === 'doubles'
+          ? buildDisplayName(existing)
+          : `${existing.firstName} ${existing.lastName}`.trim();
 
       await removePlayerFromTournament(otherMode, id, playerName);
 
@@ -319,7 +470,7 @@ export async function PATCH(req: Request) {
     });
 
     if (status === 'APPROVED' && !assignTo) {
-      await placeApprovedPlayerInTournament(existing);
+      await placeApprovedPlayerInTournament(updatedPlayer);
     }
 
     return NextResponse.json(updatedPlayer);
