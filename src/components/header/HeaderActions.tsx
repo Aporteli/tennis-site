@@ -20,7 +20,7 @@ export function HeaderActions({
   return (
     <div className="flex shrink-0 items-center gap-1 sm:gap-2">
       {/* Register — primary CTA */}
-      <button
+      {/* <button
         type="button"
         onClick={onRegisterClick}
         aria-label="რეგისტრაცია"
@@ -28,7 +28,7 @@ export function HeaderActions({
       >
         <UserPlus className="h-3.5 w-3.5 shrink-0" />
         <span className="hidden sm:inline">რეგისტრაცია</span>
-      </button>
+      </button> */}
 
       {/* Admin panel link */}
       {isAdmin && (
