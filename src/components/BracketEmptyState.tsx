@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import type { Player } from '../lib/types';
 import { shortName } from '../lib/tournament/helpers';
 import { RegisteredPlayersList, type Participant } from './RegisteredPlayersList';
@@ -11,56 +11,10 @@ interface BracketEmptyStateProps {
   registrations: Player[];
 }
 
-function CountdownTimer({ targetDate }: { targetDate: Date }) {
-  const [timeLeft, setTimeLeft] = useState({
-    days: 0,
-    hours: 0,
-    minutes: 0,
-    seconds: 0,
-  });
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const diff = targetDate.getTime() - now;
-
-      if (diff > 0) {
-        setTimeLeft({
-          days: Math.floor(diff / (1000 * 60 * 60 * 24)),
-          hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-          minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
-          seconds: Math.floor((diff % (1000 * 60)) / 1000),
-        });
-      } else {
-        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [targetDate]);
-
-  return (
-    <div className="flex justify-center gap-4 py-4 text-center">
-      {[
-        { label: 'დღე', val: timeLeft.days },
-        { label: 'საათი', val: timeLeft.hours },
-        { label: 'წუთი', val: timeLeft.minutes },
-        { label: 'წამი', val: timeLeft.seconds },
-      ].map((item, idx) => (
-        <div
-          key={idx}
-          className="flex min-w-[70px] flex-col items-center rounded-xl border border-line bg-surface-2 p-3">
-          <span className="font-display text-2xl font-bold text-ink">{item.val}</span>
-          <span className="text-xs uppercase tracking-wider text-ink-2">{item.label}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-export function BracketEmptyState({ targetDate, onRegisterClick, registrations = [] }: BracketEmptyStateProps) {
-  const effectiveDate = targetDate ?? new Date(Date.now() + 86400000 * 3);
-
+export function BracketEmptyState({
+  onRegisterClick,
+  registrations = [],
+}: BracketEmptyStateProps) {
   const participants: Participant[] = useMemo(() => {
     const approved = registrations.filter((p) => p.status === 'APPROVED');
 
@@ -104,31 +58,49 @@ export function BracketEmptyState({ targetDate, onRegisterClick, registrations =
   }, [registrations]);
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-12 text-center">
-      <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/10 px-4 py-1.5 text-sm font-medium text-accent">
-        <span className="relative flex h-2 w-2">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75"></span>
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-accent"></span>
-        </span>
-        ტურნირის ბადე ჯერ არ არის დაგენერირებული
-      </div>
+    <div className="mx-auto my-8 max-w-4xl px-4">
+      {/* Main Container / Glass Card */}
+      <div className="relative overflow-hidden rounded-2xl border border-line bg-surface-1/40 p-6 shadow-sm backdrop-blur-md sm:p-8">
+        
+        {/* Ambient Glow */}
+        <div className="pointer-events-none absolute -top-24 left-1/2 -z-10 h-64 w-64 -translate-x-1/2 rounded-full bg-accent/10 blur-3xl" />
 
-      <h2 className="font-display text-2xl font-bold text-ink sm:text-3xl">მზადება ტურნირისთვის</h2>
-      <p className="mt-2 text-sm text-ink-2 mb-4">
-        რეგისტრაცია მიმდინარეობს. ტურნირის ბადე გამოქვეყნდება კენჭისყრის დასრულებისთანავე.
-      </p>
+        <div className="mx-auto max-w-xl text-center">
+          {/* Status Badge */}
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/10 px-3.5 py-1 text-xs font-semibold text-accent">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75"></span>
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-accent"></span>
+            </span>
+            ტურნირის ბადე ჯერ არ არის დაგენერირებული
+          </div>
 
-      {onRegisterClick && (
-        <div className="mb-8">
-          <button
-            onClick={onRegisterClick}
-            className="rounded-xl bg-accent px-6 py-3 text-sm font-semibold text-white shadow-lg transition-transform hover:scale-105 active:scale-95">
-            დარეგისტრირდი ტურნირზე
-          </button>
+          {/* Title & Description */}
+          <h2 className="font-display text-2xl font-bold tracking-tight text-ink sm:text-3xl">
+            მზადება ტურნირისთვის
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-ink-2">
+            რეგისტრაცია მიმდინარეობს. ტურნირის ბადე გამოქვეყნდება კენჭისყრის დასრულებისთანავე.
+          </p>
+
+          {/* CTA Button */}
+          {onRegisterClick && (
+            <div className="mt-6">
+              <button
+                onClick={onRegisterClick}
+                className="inline-flex items-center justify-center rounded-xl bg-accent px-6 py-3 text-sm font-semibold text-white shadow-md shadow-accent/20 transition-all hover:bg-accent/90 hover:shadow-lg hover:shadow-accent/30 active:scale-95"
+              >
+                დარეგისტრირდი ტურნირზე
+              </button>
+            </div>
+          )}
         </div>
-      )}
 
-      <RegisteredPlayersList participants={participants} />
+        {/* Players List Container */}
+        <div className="mt-8 border-t border-line/50 pt-2">
+          <RegisteredPlayersList participants={participants} />
+        </div>
+      </div>
     </div>
   );
 }
