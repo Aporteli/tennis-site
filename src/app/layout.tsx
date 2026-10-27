@@ -21,7 +21,7 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Poti Cup 7',
+  title: 'Poti WinterCup 2026',
   description: 'Tennis tournament bracket',
   icons: {
     icon: '/tennis.svg', 

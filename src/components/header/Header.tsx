@@ -38,11 +38,12 @@ export function Header({
     >
       {/* Row 1 — title + actions */}
       <div className="flex items-center justify-between gap-2 sm:gap-4">
-        <h1 className="min-w-0 truncate font-display text-base font-black uppercase leading-tight tracking-tight text-ink sm:text-2xl md:text-[clamp(28px,4.5vw,44px)] md:leading-none">
-          Poti{' '}
-          <span className="text-accent-2 drop-shadow-sm"> Cup</span>{' '}
-          7
-        </h1>
+        <h1 className="min-w-0 truncate font-display text-base font-black uppercase leading-tight tracking-wide sm:text-2xl md:text-[clamp(28px,4.5vw,44px)] md:leading-none">
+  <span className="text-[#0A192F]">Poti{' '}</span>
+  <span className="bg-gradient-to-r from-[#1E3A8A] to-[#3B82F6] bg-clip-text text-transparent inline-block pb-1">Winter</span>
+  <span className="bg-gradient-to-br from-[#06B6D4] to-[#0EA5E9] bg-clip-text text-transparent drop-shadow-[0_1px_1px_rgba(6,182,212,0.3)] inline-block pb-1">Cup</span>{' '}
+  <span className="text-[#0A192F]">2026</span>
+</h1>
 
         <HeaderActions
           isLoggedIn={isLoggedIn}
